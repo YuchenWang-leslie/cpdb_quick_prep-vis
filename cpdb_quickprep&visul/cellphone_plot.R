@@ -3,14 +3,14 @@ library(dplyr)
 library(tidyverse)
 library(ggrepel)
 library(scales)
-INpvalue <- read.delim('Infant_non_AMD/statistical_analysis_pvalues_Infant_non_AMD_results.txt',check.names = F)
-INmean <- read.delim('Infant_non_AMD/statistical_analysis_means_Infant_non_AMD_results.txt',check.names = F)
+Apvalue <- read.delim('groupA/statistical_analysis_pvalues_groupA_results.txt',check.names = F)
+Amean <- read.delim('groupA/statistical_analysis_means_groupA_results.txt',check.names = F)
 
-ONpvalue <- read.delim('Old_non_AMD/statistical_analysis_pvalues_Old_non_AMD_results.txt',check.names = F)
-ONmean <- read.delim('Old_non_AMD/statistical_analysis_means_Old_non_AMD_results.txt',check.names = F)
+Bpvalue <- read.delim('groupB/statistical_analysis_pvalues_groupB_results.txt',check.names = F)
+Bmean <- read.delim('groupB/statistical_analysis_means_groupB_results.txt',check.names = F)
 
-OApvalue <- read.delim('Old_AMD/statistical_analysis_pvalues_Old_AMD_results.txt',check.names = F)
-OAmean <- read.delim('Old_AMD/statistical_analysis_means_Old_AMD_results.txt',check.names = F)
+Cpvalue <- read.delim('groupC/statistical_analysis_pvalues_groupC_results.txt',check.names = F)
+Cmean <- read.delim('groupC/statistical_analysis_means_groupC_results.txt',check.names = F)
 
 unprocessed_p_list <- list(INpvalue,ONpvalue,OApvalue)
 unprocessed_means_list <- list(INmean,ONmean,OAmean)
@@ -89,18 +89,19 @@ get_common_rownames <- function(df_list) {
     reduce(intersect)
 }
 
+###  测试使用如下细胞亚群：
 processed_p_list <- process_cpdb_pvals(
   unprocessed_list = unprocessed_p_list,
-  senders = c('B_cell','RPE','Neuron','Fibroblast','Pyramidal'),
-  receptors = c('Mac_LipidMet','Mac_ProInf_1','Mac_ProInf_2','Mac_AntiInf_1','Mac_AntiInf_2','CD8_T_GZMK','CTL'),
+  senders = c('B_cell','RPE','Neuron','Fibroblast'),
+  receptors = c('Mac_ProInf_1','Mac_ProInf_2','Mac_AntiInf_1','Mac_AntiInf_2','CD8_T'),
   pval_threshold = 0.05
 )
 
 
 processed_means_list <- process_cpdb_means(
   unprocessed_list = unprocessed_means_list,
-  senders = c('B_cell','RPE','Neuron','Fibroblast','Pyramidal'),
-  receptors = c('Mac_LipidMet','Mac_ProInf_1','Mac_ProInf_2','Mac_AntiInf_1','Mac_AntiInf_2','CD8_T_GZMK','CTL')
+  senders = c('B_cell','RPE','Neuron','Fibroblast'),
+  receptors = c('Mac_ProInf_1','Mac_ProInf_2','Mac_AntiInf_1','Mac_AntiInf_2','CD8_T')
 )
 
 common_interaction <- get_common_rownames(processed_p_list)
@@ -228,77 +229,77 @@ ggplot(filtered_data, aes(x = Group_Factor, y = mean_value)) +
 ###################################################-
 #############   分组气泡图   ######################
 ###################################################-
-# 
-# combined_data <- map_dfr(1:length(processed_p_list), function(i) {
-#   # 转换p值数据框
-#   p_df <- processed_p_list[[i]] %>%
-#     rownames_to_column("Ligand_Receptor") %>%
-#     pivot_longer(-Ligand_Receptor, 
-#                  names_to = "Cell_Pair", 
-#                  values_to = "p_value")
-#   
-#   # 转换mean值数据框
-#   mean_df <- processed_means_list[[i]] %>%
-#     rownames_to_column("Ligand_Receptor") %>%
-#     pivot_longer(-Ligand_Receptor, 
-#                  names_to = "Cell_Pair", 
-#                  values_to = "mean_value")
-#   
-#   # 合并数据并添加组标识
-#   inner_join(p_df, mean_df, by = c("Ligand_Receptor", "Cell_Pair")) %>%
-#     mutate(
-#       Group = paste0("Group", i),
-#       log_p = -log10(p_value + 1e-10)  # 避免log(0)
-#     )
-# })
-# 
-# combined_data$Cell_Pair <- gsub('\\|',' -> ',combined_data$Cell_Pair)
-#   
-# ########   筛选需要的通路  #########
-# ###   按means筛选
-# filtered_data <- combined_data %>%
-#   group_by(Ligand_Receptor, Cell_Pair) %>%
-#   filter(mean(mean_value) > quantile(combined_data$mean_value, 0.9)) %>%
-#   ungroup()
-# ###   筛选特定关键词
-# keyword <- c('CCL','CXCL','TNF','TGF')
-# keypath <- paste0(keyword,collapse = '|')
-# filtered_data <- combined_data[grep(keypath,combined_data$Ligand_Receptor),]
-# 
-# ggplot(filtered_data, aes(x = Cell_Pair, y = Ligand_Receptor)) +
-#   geom_point(aes(
-#     size = mean_value,
-#     color = log_p,
-#     alpha = ifelse(p_value < 0.05, 0.9, 0.4)  # 显著交互更明显
-#   )) +
-#   scale_size_continuous(
-#     name = "Communication\nStrength (mean)",
-#     range = c(1, 8),  # 调整气泡大小范围
-#     breaks = seq(0, max(filtered_data$mean_value), length.out = 5)
-#   ) +
-#   scale_color_gradientn(
-#     name = "-log10(p-value)",
-#     colours = c("navy",'white',"firebrick"),
-#     values = scales::rescale(c(0,5,10))
-#   ) +
-#   scale_alpha_identity() +  # 使用alpha表示显著性
-#   facet_wrap(~ Group, ncol = 2) +  # 按组分面展示
-#   theme_minimal(base_size = 12) +
-#   theme(
-#     axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
-#     axis.text.y = element_text(size = 8),
-#     axis.title = element_blank(),
-#     panel.grid.major = element_line(color = "grey90"),
-#     legend.position = "right",
-#     strip.text = element_text(face = "bold", size = 10)
-#   ) +
-#   labs(
-#     title = "Cell-Cell Communication Analysis",
-#     subtitle = "Bubble size: Interaction strength | Color: Significance level"
-#   ) +
-#   guides(
-#     size = guide_legend(override.aes = list(color = "grey50")),
-#     color = guide_colorbar(barwidth = 1, barheight = 10)
-#   )
+
+combined_data <- map_dfr(1:length(processed_p_list), function(i) {
+  # 转换p值数据框
+  p_df <- processed_p_list[[i]] %>%
+    rownames_to_column("Ligand_Receptor") %>%
+    pivot_longer(-Ligand_Receptor, 
+                 names_to = "Cell_Pair", 
+                 values_to = "p_value")
+  
+  # 转换mean值数据框
+  mean_df <- processed_means_list[[i]] %>%
+    rownames_to_column("Ligand_Receptor") %>%
+    pivot_longer(-Ligand_Receptor, 
+                 names_to = "Cell_Pair", 
+                 values_to = "mean_value")
+  
+  # 合并数据并添加组标识
+  inner_join(p_df, mean_df, by = c("Ligand_Receptor", "Cell_Pair")) %>%
+    mutate(
+      Group = paste0("Group", i),
+      log_p = -log10(p_value + 1e-10)  # 避免log(0)
+    )
+})
+
+combined_data$Cell_Pair <- gsub('\\|',' -> ',combined_data$Cell_Pair)
+  
+########   筛选需要的通路  #########
+###   按means筛选
+filtered_data <- combined_data %>%
+  group_by(Ligand_Receptor, Cell_Pair) %>%
+  filter(mean(mean_value) > quantile(combined_data$mean_value, 0.9)) %>%
+  ungroup()
+###   筛选特定关键词
+keyword <- c('CCL','CXCL','TNF','TGF')
+keypath <- paste0(keyword,collapse = '|')
+filtered_data <- combined_data[grep(keypath,combined_data$Ligand_Receptor),]
+
+ggplot(filtered_data, aes(x = Cell_Pair, y = Ligand_Receptor)) +
+  geom_point(aes(
+    size = mean_value,
+    color = log_p,
+    alpha = ifelse(p_value < 0.05, 0.9, 0.4)  # 显著交互更明显
+  )) +
+  scale_size_continuous(
+    name = "Communication\nStrength (mean)",
+    range = c(1, 8),  # 调整气泡大小范围
+    breaks = seq(0, max(filtered_data$mean_value), length.out = 5)
+  ) +
+  scale_color_gradientn(
+    name = "-log10(p-value)",
+    colours = c("navy",'white',"firebrick"),
+    values = scales::rescale(c(0,5,10))
+  ) +
+  scale_alpha_identity() +  # 使用alpha表示显著性
+  facet_wrap(~ Group, ncol = 2) +  # 按组分面展示
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    axis.text.y = element_text(size = 8),
+    axis.title = element_blank(),
+    panel.grid.major = element_line(color = "grey90"),
+    legend.position = "right",
+    strip.text = element_text(face = "bold", size = 10)
+  ) +
+  labs(
+    title = "Cell-Cell Communication Analysis",
+    subtitle = "Bubble size: Interaction strength | Color: Significance level"
+  ) +
+  guides(
+    size = guide_legend(override.aes = list(color = "grey50")),
+    color = guide_colorbar(barwidth = 1, barheight = 10)
+  )
 
 
